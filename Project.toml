@@ -1,0 +1,7 @@
+name = "QuacIO"
+uuid = "0dfb065c-ad45-4a42-9a50-cb82c165eb0b"
+authors = ["Sergio Sánchez Ramírez <sergio.sanchez.ramirez+git@bsc.es>"]
+version = "0.1.0"
+
+[deps]
+Quac = "b9105292-1415-45cf-bff1-d6ccf71e6143"

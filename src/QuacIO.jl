@@ -1,0 +1,3 @@
+module QuacIO
+
+end
