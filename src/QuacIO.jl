@@ -20,7 +20,9 @@ function QuacIO.parse(filename; format, kwargs...)
     end
 end
 
+include("helpers.jl")
 include("qflex.jl")
+include("openqasm.jl")
 
 export parse
 
