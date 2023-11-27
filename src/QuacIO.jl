@@ -2,7 +2,11 @@ module QuacIO
 
 using Quac
 
-abstract type Format end
+struct Format{X} end
+
+macro Format_str(x)
+    return :(Format{x}())
+end
 
 function parse end
 

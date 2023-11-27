@@ -1,6 +1,4 @@
-struct Qflex end
-
-function QuacIO.parse(::Qflex, io; sites = nothing)
+function QuacIO.parse(::Format{:qflex}, io; sites = nothing)
     n = Base.parse(Int, strip(readline(io)))
     n > 0 || throw(ErrorException("number of qubits must be positive"))
 
