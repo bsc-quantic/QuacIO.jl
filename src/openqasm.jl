@@ -97,23 +97,44 @@ grammar = Parser.make_grammar([:main], Parser.flatten(rules, Char))
 
 folds = Dict(
     # terminal productions
-    :id => (v, s) -> v,
-    :real => (v, s) -> parse(Float64, v),
+    :eol => (_, _) -> nothing,
+    :ws => (_, _) -> nothing,
+    :id => (v, s) -> Symbol(v),
     :nninteger => (v, s) -> parse(Int64, v),
+    :real => (v, s) -> parse(Float64, v),
+    # header
     :version => (v, s) -> VersionNumber(v),
-    :unaryop => (v, s) -> begin
-        v == "sin" && return sin
-        v == "cos" && return cos
-        v == "tan" && return tan
-        v == "exp" && return exp
-        v == "ln" && return log
-        v == "sqrt" && return sqrt
-    end,
-    :pi => pi,
-    # grammar rules
-    :header => (v, s) -> s[3],
-    :decl => (v, s) -> RegisterDeclaration(s[3], s[4], s[1] == "qreg"), # TODO
-    :decl_opt_length => (v, s) -> isempty(s) ? 1 : s[1].args[3],
+    :header => (v, (_, _, version, _)) -> Expr(:format, :openqasm, version),
+    # register declaration (e.g. "qreg q[12];")
+    :regdecloptlength => (v, s) -> isempty(s) ? 1 : s[1].args[3],
+    :regdeclkind => (v, _) -> Symbol(v),
+    :regdecl => (v, (kind, _, name, length)) -> Expr(kind, name, length),
+    # math expressions
+    :unaryop => (v, _) -> Symbol(v),
+    :binaryop => (v, _) -> Symbol(v),
+    :pi => (_, _) -> pi,
+    :expr_neg => (v, (_, x)) -> :(-$x),
+    :expr_par => (v, (_, x, _)) -> x,
+    :expr_binaryop => (v, (a, _, op, _, b)) -> Expr(:call, op, a, b),
+    :expr_unaryop => (v, (op, _, x, _)) -> Expr(:call, op, x),
+    :expr => (_, (e,)) -> e,
+    :exprlist => (v, s) -> error("unimplemented"),
+    # register references
+    # :argumentsingle => (v, (id,)) -> Expr(:ref, Symbol(id), 1),
+    :argumentarray => (v, (id, _, index, _)) -> [id, index], #Expr(:ref, Symbol(id), index),
+    :argument => (_, s) -> Expr(:ref, s...),
+    # quantum operators
+    :uopu => (_, (_, _, params, _, x, _)) -> Expr(:call, Expr(:call, :u, params), x),
+    :uopcx => (_, (_, _, a, _, b, _)) -> Expr(:call, :cx, a, b),
+    :uopcustom => (_, (gate, _, params, _, targets, _)) -> Expr(:call, gate, targets...),
+    :uop => (_, (e,)) -> e,
+    :qopmeasure => (_, (_, src, _, dst, _)) -> Expr(:call, :measure, src, dst),
+    :qopmeasure => (_, (_, target, _)) -> Expr(:call, :reset, target),
+    :qop => (_, (e,)) -> e,
+    # TODO gate declaration
+    # program
+    :program => (_, s) -> Expr(:block, s...),
+    :main => (_, (header, program)) -> Expr(:program, header, program),
 )
 
 folder(match, p, subvals) =
@@ -122,7 +143,6 @@ folder(match, p, subvals) =
     else
         Parser.default_fold(match, p, subvals)
     end
-
 end
 
 function QuacIO.parse(::Format{:openqasm}, io) end
