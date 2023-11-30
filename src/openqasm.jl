@@ -51,7 +51,7 @@ rules = Dict(
         :pi => le"pi",
     ),
     # register reference as argument
-    :argument => Parser.first(:id, :argumentarray => Parser.seq(:id, le"[", :nninteger, le"]")),
+    :argument => Parser.first(:argumentarray => Parser.seq(:id, le"[", :nninteger, le"]"), :id),
     # quantum operators
     :uop => Parser.first(
         :uopu => Parser.seq(le"U", le"(", :exprlist, le")", :argument, :eol),
@@ -120,9 +120,12 @@ folds = Dict(
     :expr => (_, (e,)) -> e,
     :exprlist => (v, s) -> error("unimplemented"),
     # register references
-    # :argumentsingle => (v, (id,)) -> Expr(:ref, Symbol(id), 1),
-    :argumentarray => (v, (id, _, index, _)) -> [id, index], #Expr(:ref, Symbol(id), index),
-    :argument => (_, s) -> Expr(:ref, s...),
+    :argumentarray => (v, (id, _, index, _)) -> (id, index),
+    :argument => (_, (x,)) -> if x isa Tuple
+        Expr(:ref, x...)
+    else
+        Expr(:ref, x)
+    end,
     # quantum operators
     :uopu => (_, (_, _, params, _, x, _)) -> Expr(:call, Expr(:call, :u, params), x),
     :uopcx => (_, (_, _, a, _, b, _)) -> Expr(:call, :cx, a, b),

@@ -129,4 +129,20 @@ end
     end
 end
 
-# Add more test cases for other parts of the code
+@testset "Argument parsing" begin
+    @testset "Single argument" begin
+        input = "arg"
+        expected = Expr(:ref, :arg)
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :argument, 1), fold = folder) ==
+              expected
+    end
+
+    @testset "Array argument" begin
+        input = "arg[3]"
+        expected = Expr(:ref, :arg, 3)
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :argument, 1), fold = folder) ==
+              expected
+    end
+end
