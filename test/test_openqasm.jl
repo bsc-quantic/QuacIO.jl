@@ -40,7 +40,6 @@ using PikaParser
     end
 end
 
-# Test parsing of header
 @testset "Header parsing" begin
     @testset "Valid header" begin
         input = "OPENQASM 2.0;"
@@ -50,7 +49,6 @@ end
     end
 end
 
-# Test parsing of register declaration
 @testset "Register declaration parsing" begin
     @testset "qreg declaration" begin
         input = "qreg q[2];"
@@ -77,7 +75,6 @@ end
     end
 end
 
-# Test parsing of math expressions
 @testset "Math expression parsing" begin
     @testset "real number" begin
         input = "3.14"
@@ -100,6 +97,13 @@ end
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
     end
 
+    @testset "identifier" begin
+        input = "x"
+        expected = :x
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
+    end
+
     @testset "negation" begin
         input = "-3.14"
         expected = Expr(:call, :-, 3.14)
@@ -114,16 +118,42 @@ end
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
     end
 
-    @testset "binary operation" begin
-        input = "3 + 2"
-        expected = Expr(:call, :+, 3, 2)
+    @testset "binary operation: $op" for op in [:+, :-, :*, :/, :^]
+        input = "3 $op 2"
+        expected = Expr(:call, op, 3, 2)
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
     end
 
-    @testset "unary operation" begin
-        input = "sin(3.14)"
-        expected = Expr(:call, :sin, 3.14)
+    @testset "binary operation: id * id" begin
+        input = "a * b"
+        expected = Expr(:call, :*, :a, :b)
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
+    end
+
+    @testset "binary operation: real * id" begin
+        input = "8.2 * x"
+        expected = Expr(:call, :*, 8.2, :x)
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
+    end
+
+    @testset "unary operation: $op" for op in [:sin, :cos, :tan, :exp, :ln, :sqrt]
+        input = "$op(3.14)"
+        expected = Expr(:call, op, 3.14)
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
+    end
+
+    @testset "binary operator precedence" begin
+        input = "a/b*x"
+        expected = Expr(:call, :*, Expr(:call, :/, :a, :b), :x)
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
+
+        input = "cos(pi/8.2 * x)^2"
+        expected = Expr(:call, :^, Expr(:call, :cos, Expr(:call, :*, Expr(:call, :/, pi, 8.2), :x)), 2)
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
     end
@@ -144,5 +174,28 @@ end
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :argument, 1), fold = folder) ==
               expected
+    end
+end
+
+@testset "Uop productions parsing" begin
+    @testset "uopu production" begin
+        input = "U(a, b, c) arg;"
+        expected = Expr(:uopu, [:a, :b, :c], :arg)
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :uop, 1), fold = folder) == expected
+    end
+
+    @testset "uopcx production" begin
+        input = "CX arg1, arg2;"
+        expected = Expr(:uopcx, :arg1, :arg2)
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :uop, 1), fold = folder) == expected
+    end
+
+    @testset "uopcustom production" begin
+        input = "custom(arg1, arg2) any1, any2;"
+        expected = Expr(:uopcustom, :custom, [:arg1, :arg2], [:any1, :any2])
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :uop, 1), fold = folder) == expected
     end
 end

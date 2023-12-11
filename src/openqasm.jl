@@ -18,6 +18,7 @@ rules = Dict(
     end,
     :nninteger => Parser.some(Parser.satisfy(isdigit)),
     :ws => Parser.some(Parser.satisfy(isspace)),
+    :wsopt => Parser.first(:ws, Parser.epsilon),
     # header
     :header => Parser.seq(
         le"OPENQASM",
@@ -35,11 +36,15 @@ rules = Dict(
     ),
     # math expressions
     :expr => Parser.first(
-        # TODO :id,
         :expr_neg => Parser.seq(le"-", :expr),
         :expr_par => Parser.seq(le"(", :expr, le")"),
-        :expr_binaryop =>
-            Parser.seq(:expr, :ws, :binaryop => Parser.first(le"+", le"-", le"*", le"/", le"^"), :ws, :expr),
+        :expr_binaryop => Parser.first(
+            :expr_binaryop_plus => Parser.seq(:expr, :wsopt, :plus => le"+", :wsopt, :expr),
+            :expr_binaryop_minus => Parser.seq(:expr, :wsopt, :minus => le"-", :wsopt, :expr),
+            :expr_binaryop_divides => Parser.seq(:expr, :wsopt, :divides => le"/", :wsopt, :expr),
+            :expr_binaryop_times => Parser.seq(:expr, :wsopt, :times => le"*", :wsopt, :expr),
+            :expr_binaryop_power => Parser.seq(:expr, :wsopt, :power => le"^", :wsopt, :expr),
+        ),
         :expr_unaryop => Parser.seq(
             :unaryop => Parser.first(le"sin", le"cos", le"tan", le"exp", le"ln", le"sqrt"),
             le"(",
@@ -49,6 +54,7 @@ rules = Dict(
         :real,
         :nninteger,
         :pi => le"pi",
+        :id,
     ),
     # register reference as argument
     :argument => Parser.first(:argumentarray => Parser.seq(:id, le"[", :nninteger, le"]"), :id),
@@ -99,6 +105,7 @@ folds = Dict(
     # terminal productions
     :eol => (_, _) -> nothing,
     :ws => (_, _) -> nothing,
+    :wsopt => (_, _) -> nothing,
     :id => (v, s) -> Symbol(v),
     :nninteger => (v, s) -> parse(Int64, v),
     :real => (v, s) -> parse(Float64, v),
@@ -115,9 +122,19 @@ folds = Dict(
     :pi => (_, _) -> pi,
     :expr_neg => (v, (_, x)) -> :(-$x),
     :expr_par => (v, (_, x, _)) -> x,
-    :expr_binaryop => (v, (a, _, op, _, b)) -> Expr(:call, op, a, b),
+    :expr_binaryop => (_, s) -> only(s),
+    :plus => (_, _) -> :+,
+    :minus => (_, _) -> :-,
+    :times => (_, _) -> :*,
+    :divides => (_, _) -> :/,
+    :power => (_, _) -> :^,
+    map([:plus, :minus, :times, :divides, :power]) do rule
+        Symbol(:expr_binaryop_, rule) => (v, (a, _, op, _, b)) -> begin
+            Expr(:call, op, a, b)
+        end
+    end...,
     :expr_unaryop => (v, (op, _, x, _)) -> Expr(:call, op, x),
-    :expr => (_, (e,)) -> e,
+    :expr => (v, s) -> ((@info "expr" v only(s)); only(s)),
     :exprlist => (v, s) -> error("unimplemented"),
     # register references
     :argumentarray => (v, (id, _, index, _)) -> (id, index),
