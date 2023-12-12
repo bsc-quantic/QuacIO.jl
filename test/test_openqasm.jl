@@ -169,7 +169,7 @@ end
 @testset "Argument parsing" begin
     @testset "Single argument" begin
         input = "arg"
-        expected = Expr(:ref, :arg)
+        expected = :arg
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :argument, 1), fold = folder) ==
               expected
@@ -187,21 +187,21 @@ end
 @testset "Uop productions parsing" begin
     @testset "uopu production" begin
         input = "U(a, b, c) arg;"
-        expected = Expr(:uopu, [:a, :b, :c], :arg)
+        expected = :(U((a, b, c), arg))
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :uop, 1), fold = folder) == expected
     end
 
     @testset "uopcx production" begin
         input = "CX arg1, arg2;"
-        expected = Expr(:uopcx, :arg1, :arg2)
+        expected = :(CX(arg1,arg2))
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :uop, 1), fold = folder) == expected
     end
 
     @testset "uopcustom production" begin
         input = "custom(arg1, arg2) any1, any2;"
-        expected = Expr(:uopcustom, :custom, [:arg1, :arg2], [:any1, :any2])
+        expected = :(uop(custom, (arg1, arg2), any1, any2))
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :uop, 1), fold = folder) == expected
     end

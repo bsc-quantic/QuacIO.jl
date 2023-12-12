@@ -164,19 +164,14 @@ folds = Dict(
     :base_exp => (_, (x,)) -> x,
     :paren_expr => (v, (_, _, x, _, _)) -> x,
     :expr => (v, (x,)) -> x,
-    :exprlist_in => (_, (e,_,_,el)) -> Expr(:tuple, e, el),
+    :exprlist_in => (_, (e,_,_,el)) -> [e;el],
     # register references
-    :argumentarray => (v, (id, _, index, _)) -> (id, index),
-    :argument => (_, (x,)) -> if x isa Tuple
-        Expr(:ref, x...)
-    else
-        Expr(:ref, x)
-    end,
+    :argumentarray => (v, (id, _, index, _)) -> Expr(:ref, id, index),
     # quantum operators
-    :uopu => (_, (_, _, _, params, _, _, arg, _)) -> Expr(:call, :uop, params, arg),
-    :uopcx => (_, (_, _, a, _, _, b, _)) -> Expr(:call, :cx, a, b),
-    :uopcustom => (_, (gate, params, targets, _)) -> Expr(:call, gate, params, targets),
-    :idcons => (_, (a, _, _, as)) -> Expr(:tuple, a, as),
+    :uopu => (_, (_, _, _, params, _, _, arg, _)) -> Expr(:call, :U, Expr(:tuple, params...), arg),
+    :uopcx => (_, (_, _, a, _, _, b, _)) -> Expr(:call, :CX, a, b),
+    :uopcustom => (_, (gate, params, targets, _)) -> Expr(:call, :uop, gate, Expr(:tuple, params...), targets...),
+    :idcons => (_, (a, _, _, as)) -> [a;as],
     :uopcustom_in => (_, (_,_,x,_,_)) -> x,
     :uop => (_, (e,)) -> e,
     :qopmeasure => (_, (_, src, _, dst, _)) -> Expr(:call, :measure, src, dst),
