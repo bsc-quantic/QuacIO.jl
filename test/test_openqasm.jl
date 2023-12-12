@@ -43,7 +43,7 @@ end
 @testset "Header parsing" begin
     @testset "Valid header" begin
         input = "OPENQASM 2.0;"
-        expected = Expr(:format, :openqasm, v"2.0")
+        expected = Expr(:call, :format, :openqasm, v"2.0")
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :header, 1), fold = folder) == expected
     end
@@ -52,24 +52,24 @@ end
 @testset "Register declaration parsing" begin
     @testset "qreg declaration" begin
         input = "qreg q[2];"
-        expected = Expr(:qreg, :q, 2)
+        expected = Expr(:call, :qreg, :q, 2)
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :regdecl, 1), fold = folder) == expected
 
         input = "qreg q;"
-        expected = Expr(:qreg, :q, 1)
+        expected = Expr(:call, :qreg, :q, 1)
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :regdecl, 1), fold = folder) == expected
     end
 
     @testset "creg declaration" begin
         input = "creg c[3];"
-        expected = Expr(:creg, :c, 3)
+        expected = Expr(:call, :creg, :c, 3)
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :regdecl, 1), fold = folder) == expected
 
         input = "creg c;"
-        expected = Expr(:creg, :c, 1)
+        expected = Expr(:call, :creg, :c, 1)
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :regdecl, 1), fold = folder) == expected
     end
@@ -104,9 +104,16 @@ end
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
     end
 
-    @testset "negation" begin
+    @testset "negated literal" begin
         input = "-3.14"
-        expected = Expr(:call, :-, 3.14)
+        expected = -3.14
+        state = PikaParser.parse(grammar, input)
+        @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
+    end
+
+    @testset "unary negation operator" begin
+        input = "- 12.34 + -a + -(a)"
+        expected = :((-(12.34) + -a) + -a)
         state = PikaParser.parse(grammar, input)
         @test PikaParser.traverse_match(state, PikaParser.find_match_at!(state, :expr, 1), fold = folder) == expected
     end
